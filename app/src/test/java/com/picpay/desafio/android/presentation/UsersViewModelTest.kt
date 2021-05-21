@@ -57,27 +57,50 @@ class UsersViewModelTest {
     }
 
     @Test
-    fun `when view model get users then set users`() = testDispatcher.runBlockingTest {
-        val users = listOf<User>()
-        viewModel = UsersViewModel(MockRepositorySuccess())
+    fun `when view model get users then set users`() = runBlockingTest {
+        val users = listOf(
+            User("url","enzo",1,"enzo"),
+            User("url","enzo",1,"enzo"),
+            User("url","enzo",1,"enzo"),
+            User("url","enzo",1,"enzo")
+        )
+        viewModel = UsersViewModel(MockRepositorySuccess(users))
         viewModel.users.observeForever(userLiveDataObserver)
 
         assertThat(viewModel.users.value.let {
             it!!.data
         }).isEqualTo(users)
-
+        assertThat(viewModel.users.value).isInstanceOf(Resource.Success::class.java)
     }
+
+    @Test
+    fun `when view model not yet get users then return null`() = runBlockingTest {
+        viewModel = UsersViewModel((MockRepositoryLoading()))
+        viewModel.users.observeForever(userLiveDataObserver)
+        assertThat(viewModel.users.value.let {
+            it!!.data
+        }).isNull()
+        assertThat(viewModel.users.value).isInstanceOf(Resource.Loading::class.java)
+    }
+
+    @Test
+    fun `when view model get error then return resource error`() = runBlockingTest {
+        viewModel = UsersViewModel(MockRepositoryError(Throwable("error")))
+        viewModel.users.observeForever(userLiveDataObserver)
+        assertThat(viewModel.users.value).isInstanceOf(Resource.Error::class.java)
+    }
+
 }
 
-class MockRepositorySuccess(): UsersRepository {
+class MockRepositorySuccess(private val users: List<User>): UsersRepository {
     override fun getUsers(): Flow<Resource<List<User>>> {
         return flow {
-            emit(Resource.Success(listOf<User>()))
+            emit(Resource.Success(users))
         }
     }
 }
 
-class MockRepositoryLoading(resource: Resource<List<User>>): UsersRepository {
+class MockRepositoryLoading(): UsersRepository {
     override fun getUsers(): Flow<Resource<List<User>>> {
         return flow {
             emit(Resource.Loading())
@@ -85,10 +108,10 @@ class MockRepositoryLoading(resource: Resource<List<User>>): UsersRepository {
     }
 }
 
-class MockRepositoryError(resource: Resource<List<User>>): UsersRepository {
+class MockRepositoryError(private val throwable: Throwable): UsersRepository {
     override fun getUsers(): Flow<Resource<List<User>>> {
         return flow {
-            emit(Resource.Error(Throwable("Erro")))
+            emit(Resource.Error(throwable))
         }
     }
 }
